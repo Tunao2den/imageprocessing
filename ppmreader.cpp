@@ -26,28 +26,24 @@ struct ppm_file
 	unsigned char *rdata,*gdata,*bdata;
 };
 
-// HSI formatındaki tek bir piksel
 struct hsi_pixel {
     float h;  // Hue [0, 360]
     float s;  // Saturation [0, 1]
     float i;  // Intensity [0, 1]
 };
 
-// HSI formatında tüm resmi temsil eden yapı
 struct hsi_image {
     int width;
     int height;
     struct hsi_pixel *data;  // Boyut: width * height
 };
 
-// YCbCr formatındaki tek bir piksel
 struct ycbcr_pixel {
     float y;   // Luma (Y)
     float cb;  // Blue-difference chroma (Cb)
     float cr;  // Red-difference chroma (Cr)
 };
 
-// YCbCr formatında tüm resmi temsil eden yapı
 struct ycbcr_image {
     int width;
     int height;
@@ -56,10 +52,6 @@ struct ycbcr_image {
 
 
 #pragma endregion
-
-
-
-
 
 void get_image_data(const char *filename,struct ppm_file *image);
 void write_image(const char *filename,struct ppm_file *image);
@@ -132,7 +124,6 @@ void get_image_data(const char *filename, struct ppm_file *image )
 }
 
 void copy_ppm_file(struct ppm_file *src, struct ppm_file *dest) {
-    // 1. Header kopyalama
     dest->pheader = (struct ppm_header *)malloc(sizeof(struct ppm_header));
     if (!dest->pheader) {
         printf("Memory allocation failed for header.\n");
@@ -142,7 +133,6 @@ void copy_ppm_file(struct ppm_file *src, struct ppm_file *dest) {
 
     int total_pixels = src->pheader->pwidth * src->pheader->pheight;
 
-    // 2. R, G, B kanallarına bellekte yer aç ve verileri kopyala
     dest->rdata = (unsigned char *)malloc(total_pixels * sizeof(unsigned char));
     dest->gdata = (unsigned char *)malloc(total_pixels * sizeof(unsigned char));
     dest->bdata = (unsigned char *)malloc(total_pixels * sizeof(unsigned char));
@@ -156,8 +146,6 @@ void copy_ppm_file(struct ppm_file *src, struct ppm_file *dest) {
     memcpy(dest->gdata, src->gdata, total_pixels);
     memcpy(dest->bdata, src->bdata, total_pixels);
 }
-
-
 
 struct hsi_image* ppm_to_hsi_image(struct ppm_file *ppm) {
     int width = ppm->pheader->pwidth;
@@ -206,7 +194,6 @@ void histogram_equalize_hsi(struct hsi_image *hsi_img) {
     int cdf[256] = {0};
     int i;
 
-    // 1. Histogramı oluştur (I kanalını 0-255'e ölçekleyerek)
     for (i = 0; i < total_pixels; i++) {
         int intensity = (int)(hsi_img->data[i].i * 255.0f);
         if (intensity > 255) intensity = 255;
@@ -214,13 +201,11 @@ void histogram_equalize_hsi(struct hsi_image *hsi_img) {
         hist[intensity]++;
     }
 
-    // 2. CDF oluştur
     cdf[0] = hist[0];
     for (i = 1; i < 256; i++) {
         cdf[i] = cdf[i - 1] + hist[i];
     }
 
-    // 3. Normalize edip eşitleme haritasını oluştur
     float cdf_min = 0;
     for (i = 0; i < 256; i++) {
         if (cdf[i] != 0) {
@@ -236,7 +221,6 @@ void histogram_equalize_hsi(struct hsi_image *hsi_img) {
         if (map[i] > 255) map[i] = 255;
     }
 
-    // 4. Yeni intensity değerlerini uygula
     for (i = 0; i < total_pixels; i++) {
         int old_intensity = (int)(hsi_img->data[i].i * 255.0f);
         if (old_intensity > 255) old_intensity = 255;
@@ -246,7 +230,6 @@ void histogram_equalize_hsi(struct hsi_image *hsi_img) {
         hsi_img->data[i].i = new_intensity;
     }
 }
-
 
 struct ppm_file *hsi_to_ppm_image(struct hsi_image *hsi_img) {
     int width = hsi_img->width;
@@ -295,7 +278,6 @@ struct ppm_file *hsi_to_ppm_image(struct hsi_image *hsi_img) {
             }
         }
 
-        // Clamp & convert to 0-255
         int r = (int)(R * 255.0f);
         int g = (int)(G * 255.0f);
         int b = (int)(B * 255.0f);
@@ -347,21 +329,18 @@ void histogram_equalize_ycbcr(struct ycbcr_image *img) {
     int histogram[256] = {0};
     int cdf[256] = {0};
 
-    // 1. Histogram: Y kanalını [0,255] aralığına ölçekleyip say
     for (int i = 0; i < total_pixels; i++) {
-        int y_val = (int)(img->data[i].y);  // Y zaten 0-255 aralığında
+        int y_val = (int)(img->data[i].y); 
         if (y_val < 0) y_val = 0;
         if (y_val > 255) y_val = 255;
         histogram[y_val]++;
     }
 
-    // 2. CDF hesapla
     cdf[0] = histogram[0];
     for (int i = 1; i < 256; i++) {
         cdf[i] = cdf[i - 1] + histogram[i];
     }
 
-    // 3. CDF_min bul
     int cdf_min = 0;
     for (int i = 0; i < 256; i++) {
         if (cdf[i] != 0) {
@@ -370,7 +349,6 @@ void histogram_equalize_ycbcr(struct ycbcr_image *img) {
         }
     }
 
-    // 4. Y bileşeni üzerinde histogram equalization uygula
     for (int i = 0; i < total_pixels; i++) {
         int y_val = (int)(img->data[i].y);
         if (y_val < 0) y_val = 0;
@@ -387,7 +365,6 @@ void YCbCr_to_rgb(struct ycbcr_image *ycbcr_img, struct ppm_file *ppm_img) {
     int height = ycbcr_img->height;
     int total_pixels = width * height;
 
-    // PPM başlık kopyala
     ppm_img->pheader = (struct ppm_header *)malloc(sizeof(struct ppm_header));
     ppm_img->pheader->pgmtype1 = 'P';
     ppm_img->pheader->pgmtype2 = '6';
@@ -395,7 +372,6 @@ void YCbCr_to_rgb(struct ycbcr_image *ycbcr_img, struct ppm_file *ppm_img) {
     ppm_img->pheader->pheight = height;
     ppm_img->pheader->pmax = 255;
 
-    // Bellek ayır
     ppm_img->rdata = (unsigned char *)malloc(total_pixels);
     ppm_img->gdata = (unsigned char *)malloc(total_pixels);
     ppm_img->bdata = (unsigned char *)malloc(total_pixels);
@@ -409,7 +385,6 @@ void YCbCr_to_rgb(struct ycbcr_image *ycbcr_img, struct ppm_file *ppm_img) {
         int G = round(Y - 0.344136 * (Cb - 128) - 0.714136 * (Cr - 128));
         int B = round(Y + 1.772 * (Cb - 128));
 
-        // Clamp: 0–255 arası tut
         if (R < 0) R = 0; if (R > 255) R = 255;
         if (G < 0) G = 0; if (G > 255) G = 255;
         if (B < 0) B = 0; if (B > 255) B = 255;
@@ -453,7 +428,6 @@ double calculate_snr(struct ppm_file *original, struct ppm_file *processed) {
     return 10.0 * log10(signal / noise);
 }
 
-
 double calculate_psnr(struct ppm_file *original, struct ppm_file *processed) {
     int total_pixels = original->pheader->pwidth * original->pheader->pheight;
     double mse = 0.0;
@@ -472,7 +446,7 @@ double calculate_psnr(struct ppm_file *original, struct ppm_file *processed) {
         mse += diff_b * diff_b;
     }
 
-    mse /= (3.0 * total_pixels);  // toplam 3 kanal var
+    mse /= (3.0 * total_pixels);
 
     if (mse == 0.0) {
         return INFINITY; // perfect match
@@ -481,7 +455,6 @@ double calculate_psnr(struct ppm_file *original, struct ppm_file *processed) {
     double max_pixel = 255.0;
     return 10.0 * log10((max_pixel * max_pixel) / mse);
 }
-
 
 
 void save_image_data(const char *filename, struct ppm_file *image) {
@@ -513,7 +486,7 @@ void save_ppm_as_bmp(struct ppm_file *image, const char *filename) {
     FILE *f;
     int width = image->pheader->pwidth;
     int height = image->pheader->pheight;
-    int padding = (4 - (width * 3) % 4) % 4; // BMP formatı her satırı 4 byte hizalar
+    int padding = (4 - (width * 3) % 4) % 4;
     int filesize = 54 + (3 * width + padding) * height;
 
     unsigned char bmpfileheader[14] = {
@@ -538,7 +511,6 @@ void save_ppm_as_bmp(struct ppm_file *image, const char *filename) {
         0,0,0,0        // important colors
     };
 
-    // Boyutları yaz
     bmpfileheader[2] = (unsigned char)(filesize    );
     bmpfileheader[3] = (unsigned char)(filesize>> 8);
     bmpfileheader[4] = (unsigned char)(filesize>>16);
@@ -554,12 +526,10 @@ void save_ppm_as_bmp(struct ppm_file *image, const char *filename) {
     bmpinfoheader[10]= (unsigned char)(height>>16);
     bmpinfoheader[11]= (unsigned char)(height>>24);
 
-    // Dosya oluştur
     f = fopen(filename, "wb");
     fwrite(bmpfileheader, 1, 14, f);
     fwrite(bmpinfoheader, 1, 40, f);
 
-    // BMP formatı BGR ve satır satır TERSTEN yazılır (bottom to top)
     for (int y = height - 1; y >= 0; y--) {
         for (int x = 0; x < width; x++) {
             int i = y * width + x;
@@ -624,12 +594,10 @@ int main()
 	copy_ppm_file(&picture, &picture1);
 	copy_ppm_file(&picture, &picture2);
 
-	//Information of image
 	printf("pgmtype...=%c%c\n",picture.pheader->pgmtype1,picture.pheader->pgmtype2);
 	printf("width...=%d\n",picture.pheader->pwidth);
 	printf("height...=%d\n",picture.pheader->pheight);
 	printf("max gray level...=%d\n",picture.pheader->pmax);
-
 
 	struct hsi_image *hsi_pic1 = ppm_to_hsi_image(&picture1);
 	histogram_equalize_hsi(hsi_pic1);
@@ -638,18 +606,16 @@ int main()
 
 	struct ycbcr_image *ycbcr_pic2 = ppm_to_ycbcr_image(&picture2);
 	histogram_equalize_ycbcr(ycbcr_pic2);
-	//struct ppm_file picture2; // dönüşüm sonucu burada tutulacak
 	YCbCr_to_rgb(ycbcr_pic2, &picture2);
 
-
-	double snr_hsi = calculate_snr(&picture, &picture1);
+	double snr_hsi = calculate_snr(&picture, picture1_eq);
 	double snr_ycbcr = calculate_snr(&picture, &picture2);
 
 	printf("SNR (HSI Equalized): %.2f dB\n", snr_hsi);
 	printf("SNR (YCbCr Equalized): %.2f dB\n", snr_ycbcr);
 
 
-	double psnr_hsi = calculate_psnr(&picture, &picture1);
+	double psnr_hsi = calculate_psnr(&picture, picture1_eq);
 	double psnr_ycbcr = calculate_psnr(&picture, &picture2);
 
 	printf("PSNR (HSI Equalized): %.2f dB\n", psnr_hsi);
@@ -669,11 +635,7 @@ int main()
 	open_image("picture1.bmp");
 	open_image("picture2.bmp");
 
-
-
-
 	write_image("pnr.ppm",&picture);
-
 
 	free_ppm_file(&picture);
 	free_ppm_file(&picture1);
