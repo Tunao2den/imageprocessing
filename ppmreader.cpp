@@ -546,16 +546,14 @@ void save_ppm_as_bmp(struct ppm_file *image, const char *filename) {
     }
 
     fclose(f);
-    printf("Saved as BMP: %s\n", filename);
+    //printf("Saved as BMP: %s\n", filename);
 }
-
 
 void open_image(const char *filename) {
     char command[256];
 	snprintf(command, sizeof(command), "start %s", filename);  // Windows
     system(command);
 }
-
 
 void free_ppm_file(struct ppm_file *image) {
     if (image->pheader) free(image->pheader);
@@ -581,8 +579,6 @@ void free_ycbcr_image(struct ycbcr_image *image) {
         free(image);
     }
 }
-
-
 
 int main()
 {	
@@ -623,22 +619,22 @@ int main()
 
 
 	save_image_data("original.ppm", &picture);
-	save_image_data("equalized_hsi.ppm", &picture1);
+	save_image_data("equalized_hsi.ppm", picture1_eq);
 	save_image_data("equalized_ycbcr.ppm", &picture2);
 
 	save_ppm_as_bmp(&picture, "original.bmp");
-	save_ppm_as_bmp(&picture1, "picture1.bmp");
-	save_ppm_as_bmp(&picture2, "picture2.bmp");
+	save_ppm_as_bmp(picture1_eq, "hsi_equalized.bmp");
+	save_ppm_as_bmp(&picture2, "ycbcr_equalized.bmp");
 
 
 	open_image("original.bmp");
-	open_image("picture1.bmp");
-	open_image("picture2.bmp");
+	open_image("hsi_equalized.bmp");
+	open_image("ycbcr_equalized.bmp");
 
 	write_image("pnr.ppm",&picture);
 
 	free_ppm_file(&picture);
-	free_ppm_file(&picture1);
+	free_ppm_file(picture1_eq);
 	free_ppm_file(&picture2);
 	free_hsi_image(hsi_pic1);
 	free_ycbcr_image(ycbcr_pic2);
